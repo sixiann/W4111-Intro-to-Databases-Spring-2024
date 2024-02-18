@@ -1,7 +1,7 @@
 # PyCharm Test
 
 # Replace the abc123 with your uni
-uni = "abc123"
+uni = "sh4350"
 
 print(uni)
 print("Hello World!")
