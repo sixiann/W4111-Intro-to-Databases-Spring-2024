@@ -63,7 +63,16 @@ async def get_students(req: Request):
 	"""
 
 	# Use `dict(req.query_params)` to access query parameters
-	pass
+	# Convert query parameters to a dictionary
+	query_params = dict(req.query_params)
+
+	fields = query_params.pop('fields', None)
+	if fields:
+		fields = fields.split(',')
+
+	rows = db.select('student', fields, query_params)
+
+	return JSONResponse(content=rows, status_code=status.HTTP_200_OK)
 
 @app.get("/students/{student_id}")
 async def get_student(student_id: int):
@@ -80,7 +89,14 @@ async def get_student(student_id: int):
 	:returns: If the student ID exists, a dict representing the student with HTTP status set to 200 OK.
 				If the student ID doesn't exist, the HTTP status should be set to 404 Not Found.
 	"""
-	pass
+	filters = {'student_id': student_id}
+	students = db.select('student', None, filters)
+
+	if students:
+		return JSONResponse(content=students[0], status_code=status.HTTP_200_OK)
+	else:
+		return JSONResponse(content="",status_code=status.HTTP_404_NOT_FOUND)
+	
 
 @app.post("/students")
 async def post_student(req: Request):
@@ -109,7 +125,39 @@ async def post_student(req: Request):
 	"""
 
 	# Use `await req.json()` to access the request body
-	pass
+	student_data = await req.json()
+
+	bad_request = JSONResponse(content="bad request",status_code=status.HTTP_400_BAD_REQUEST)
+	
+
+	if 'email' not in student_data:
+		return bad_request
+	
+	existing_students = db.select('student', None, {'email': student_data['email']})
+	if existing_students:
+		return bad_request
+	
+	if 'enrollment_year' in student_data:
+		try:
+			year = int(student_data['enrollment_year'])
+			if year < 2016 or year > 2023: 
+				return bad_request
+		except:
+			return bad_request
+
+	try:
+		n_rows = db.insert('student', student_data)
+		if n_rows == 0:
+			return bad_request
+		
+		return JSONResponse(content="Success", status_code=status.HTTP_201_CREATED)
+	except:
+		return bad_request
+
+
+	
+
+
 
 @app.put("/students/{student_id}")
 async def put_student(student_id: int, req: Request):
@@ -138,7 +186,40 @@ async def put_student(student_id: int, req: Request):
 	"""
 
 	# Use `await req.json()` to access the request body
-	pass
+	student_data = await req.json()
+	bad_request = JSONResponse(content="bad request",status_code=status.HTTP_400_BAD_REQUEST)
+
+	filters = {'student_id': student_id}
+	student = db.select('student', None, filters)
+	if not student: 
+		return JSONResponse(content="",status_code=status.HTTP_404_NOT_FOUND)
+	
+	if 'email' in student_data:
+		if student_data['email'] == None:
+			return bad_request 
+
+		existing_students = db.select('student', None, {'email': student_data['email']})
+		if existing_students:
+			return bad_request
+	
+	if 'enrollment_year' in student_data:
+		try:
+			year = int(student_data['enrollment_year'])
+			if year < 2016 or year > 2023:
+				return bad_request
+		except:
+			return bad_request
+	
+	try:
+		n_rows = db.update('student', student_data, filters)
+		if n_rows == 0:
+			return bad_request
+		
+		return JSONResponse(content="Success", status_code=status.HTTP_200_OK)
+	except:
+		return bad_request
+	
+
 
 @app.delete("/students/{student_id}")
 async def delete_student(student_id: int):
@@ -154,7 +235,23 @@ async def delete_student(student_id: int):
 	:returns: If the request is valid, the HTTP status should be set to 200 OK.
 				If the request is not valid, the HTTP status should be set to 404 Not Found.
 	"""
-	pass
+	filters = {'student_id': student_id}
+	student = db.select('student', None, filters)
+	if not student: 
+		return JSONResponse(content="",status_code=status.HTTP_404_NOT_FOUND)
+	
+	bad_request = JSONResponse(content="bad request",status_code=status.HTTP_400_BAD_REQUEST)
+
+	try:
+		n_rows = db.delete('student', filters)
+		if n_rows == 0:
+			return bad_request
+		
+		return JSONResponse(content="Success", status_code=status.HTTP_200_OK)
+	except:
+		return bad_request
+	
+
 
 
 # --- EMPLOYEES ---
