@@ -55,7 +55,38 @@ class DB:
 		:param filters: Key-value pairs that the rows from table must satisfy
 		:returns: A query string and any placeholder arguments
 		"""
-		pass
+
+		# Start building the SELECT part of the query
+		if rows:
+			select_clause = f"SELECT {', '.join(rows)}"
+		else:
+			select_clause = "SELECT *"
+
+		# Add the FROM part of the query
+		from_clause = f"FROM {table}"
+
+		# Initialize an empty list for arguments
+		args = []
+
+		# Build the WHERE part of the query if there are any filters
+		if filters:
+			where_clauses = []
+			for key, value in filters.items():
+				# Assume all filters use equality for simplicity
+				where_clauses.append(f"{key} = %s")
+				args.append(value)
+			where_clause = "WHERE " + " AND ".join(where_clauses)
+		else:
+			where_clause = ""
+
+		# Combine all parts of the query
+		query = f"{select_clause} {from_clause} {where_clause}"
+
+		if query[-1] == " ":
+			query = query[:-1]
+		return query, args
+
+
 
 	def select(self, table: str, rows: List[str], filters: KV) -> List[KV]:
 		"""Runs a select statement. You should use build_select_query and execute_query.
@@ -65,7 +96,9 @@ class DB:
 		:param filters: Key-value pairs that the rows to be selected must satisfy
 		:returns: The selected rows
 		"""
-		pass
+		query, args = self.build_select_query(table, rows, filters)
+		rows = self.execute_query(query, args, True)
+		return rows
 
 	@staticmethod
 	def build_insert_query(table: str, values: KV) -> Query:
@@ -75,7 +108,26 @@ class DB:
 		:param values: Key-value pairs that represent the values to be inserted
 		:returns: A query string and any placeholder arguments
 		"""
-		pass
+		insert_clause = f"INSERT INTO {table} "
+
+		args = []
+
+		keys = "("
+		vals = "("
+
+		for k, v in values.items():
+			args.append(v)
+			keys += k + ", "
+			vals += "%s, "
+
+		keys = keys[:-2] + ")"
+		vals = vals[:-2] + ")"
+
+		insert_clause += keys + " VALUES " + vals
+
+		return insert_clause, args
+
+
 
 	def insert(self, table: str, values: KV) -> int:
 		"""Runs an insert statement. You should use build_insert_query and execute_query.
@@ -84,7 +136,10 @@ class DB:
 		:param values: Key-value pairs that represent the values to be inserted
 		:returns: The number of rows affected
 		"""
-		pass
+		query, args = self.build_insert_query(table, values)
+		n_rows = self.execute_query(query, args, False)
+
+		return n_rows
 
 	@staticmethod
 	def build_update_query(table: str, values: KV, filters: KV) -> Query:
@@ -95,7 +150,25 @@ class DB:
 		:param filters: Key-value pairs that the rows from table must satisfy
 		:returns: A query string and any placeholder arguments
 		"""
-		pass
+		clauses = [f"UPDATE {table}"]
+		args = []
+
+		set_clauses = []
+		for key, value in values.items():
+			set_clauses.append(f"{key} = %s")
+			args.append(value)
+		clauses.append("SET " + ", ".join(set_clauses))
+
+		if filters:
+			where_clauses = []
+			for key, value in filters.items():
+				where_clauses.append(f"{key} = %s")
+				args.append(value)
+			clauses.append("WHERE " + " AND ".join(where_clauses))
+
+		return " ".join(clauses), args
+
+
 
 	def update(self, table: str, values: KV, filters: KV) -> int:
 		"""Runs an update statement. You should use build_update_query and execute_query.
@@ -105,7 +178,11 @@ class DB:
 		:param filters: Key-value pairs that the rows to be updated must satisfy
 		:returns: The number of rows affected
 		"""
-		pass
+		query, args = self.build_update_query(table, values, filters)
+		n_rows = self.execute_query(query, args, False)
+		return n_rows
+
+
 
 	@staticmethod
 	def build_delete_query(table: str, filters: KV) -> Query:
@@ -115,7 +192,20 @@ class DB:
 		:param filters: Key-value pairs that the rows to be deleted must satisfy
 		:returns: A query string and any placeholder arguments
 		"""
-		pass
+		args = []
+		clauses = [f"DELETE FROM {table}"]
+
+		if filters:
+			where_clauses = []
+			for key, value in filters.items():
+				where_clauses.append(f"{key} = %s")
+				args.append(value)
+			clauses.append("WHERE " + " AND ".join(where_clauses))
+
+		return " ".join(clauses), args
+
+
+
 
 	def delete(self, table: str, filters: KV) -> int:
 		"""Runs a delete statement. You should use build_delete_query and execute_query.
@@ -124,4 +214,6 @@ class DB:
 		:param filters: Key-value pairs that the rows to be deleted must satisfy
 		:returns: The number of rows affected
 		"""
-		pass
+		query, args = self.build_delete_query(table, filters)
+		n_rows = self.execute_query(query, args, False)
+		return n_rows
