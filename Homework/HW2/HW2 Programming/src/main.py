@@ -282,7 +282,15 @@ async def get_employees(req: Request):
 	"""
 
 	# Use `dict(req.query_params)` to access query parameters
-	pass
+	query_params = dict(req.query_params)
+
+	fields = query_params.pop('fields', None)
+	if fields:
+		fields = fields.split(',')
+
+	rows = db.select('employee', fields, query_params)
+
+	return JSONResponse(content=rows, status_code=status.HTTP_200_OK)
 
 @app.get("/employees/{employee_id}")
 async def get_employee(employee_id: int):
@@ -299,7 +307,13 @@ async def get_employee(employee_id: int):
 	:returns: If the employee ID exists, a dict representing the employee with HTTP status set to 200 OK.
 				If the employee ID doesn't exist, the HTTP status should be set to 404 Not Found.
 	"""
-	pass
+	filters = {'employee_id': employee_id}
+	employees = db.select('employee', None, filters)
+
+	if employees:
+		return JSONResponse(content=employees[0], status_code=status.HTTP_200_OK)
+	else:
+		return JSONResponse(content="",status_code=status.HTTP_404_NOT_FOUND)
 
 @app.post("/employees")
 async def post_employee(req: Request):
@@ -328,7 +342,38 @@ async def post_employee(req: Request):
 	"""
 
 	# Use `await req.json()` to access the request body
-	pass
+	employee_data = await req.json()
+
+	bad_request = JSONResponse(content="bad request",status_code=status.HTTP_400_BAD_REQUEST)
+	
+
+	if 'email' not in employee_data:
+		return bad_request
+	
+	existing_employees = db.select('employee', None, {'email': employee_data['email']})
+	if existing_employees:
+		return bad_request
+	
+	if 'employee_type' not in employee_data:
+		return bad_request
+	
+	
+	try:
+		employee_type = employee_data['employee_type']
+		if employee_type not in ['Professor', 'Lecturer', 'Staff']:
+			return bad_request
+	except:
+		bad_request
+	
+
+	try:
+		n_rows = db.insert('employee', employee_data)
+		if n_rows == 0:
+			return bad_request
+		
+		return JSONResponse(content="Success", status_code=status.HTTP_201_CREATED)
+	except:
+		return bad_request
 
 @app.put("/employees/{employee_id}")
 async def put_employee(employee_id: int, req: Request):
@@ -357,7 +402,41 @@ async def put_employee(employee_id: int, req: Request):
 	"""
 
 	# Use `await req.json()` to access the request body
-	pass
+	employee_data = await req.json()
+	bad_request = JSONResponse(content="bad request",status_code=status.HTTP_400_BAD_REQUEST)
+
+	filters = {'employee_id': employee_id}
+	employee = db.select('employee', None, filters)
+	if not employee: 
+		return JSONResponse(content="",status_code=status.HTTP_404_NOT_FOUND)
+	
+	if 'email' in employee_data:
+		if employee_data['email'] == None:
+			return bad_request 
+
+		existing_employees = db.select('employee', None, {'email': employee_data['email']})
+		if existing_employees:
+			return bad_request
+	
+
+	
+	
+	try:
+		employee_type = employee_data['employee_type']
+		if employee_type not in ['Professor', 'Lecturer', 'Staff']:
+			return bad_request
+	except:
+		bad_request
+
+	
+	try:
+		n_rows = db.update('employee', employee_data, filters)
+		if n_rows == 0:
+			return bad_request
+		
+		return JSONResponse(content="Success", status_code=status.HTTP_200_OK)
+	except:
+		return bad_request
 
 @app.delete("/employees/{employee_id}")
 async def delete_employee(employee_id: int):
@@ -373,7 +452,21 @@ async def delete_employee(employee_id: int):
 	:returns: If the request is valid, the HTTP status should be set to 200 OK.
 				If the request is not valid, the HTTP status should be set to 404 Not Found.
 	"""
-	pass
+	filters = {'employee_id': employee_id}
+	employee = db.select('employee', None, filters)
+	if not employee: 
+		return JSONResponse(content="",status_code=status.HTTP_404_NOT_FOUND)
+	
+	bad_request = JSONResponse(content="bad request",status_code=status.HTTP_400_BAD_REQUEST)
+
+	try:
+		n_rows = db.delete('employee', filters)
+		if n_rows == 0:
+			return bad_request
+		
+		return JSONResponse(content="Success", status_code=status.HTTP_200_OK)
+	except:
+		return bad_request
 
 if __name__ == "__main__":
 	uvicorn.run(app, host="0.0.0.0", port=8002)
